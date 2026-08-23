@@ -77,6 +77,15 @@ export default function AdminPage() {
     e.preventDefault();
     setMessage("");
 
+    const name = businessName.trim();
+    const id = businessId.trim();
+    const url = reviewUrl.trim();
+
+    if (!name || !id || !url) {
+      setMessage("Please fill in all required fields.");
+      return;
+    }
+
     try {
       const response = await fetch("/api/businesses", {
         method: "POST",
@@ -84,9 +93,9 @@ export default function AdminPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: businessName,
-          id: businessId,
-          reviewUrl,
+          name,
+          id,
+          reviewUrl: url,
         }),
       });
 
@@ -104,7 +113,8 @@ export default function AdminPage() {
       setReviewUrl("");
 
       await loadBusinesses();
-    } catch {
+    } catch (error) {
+      console.error(error);
       setMessage("Could not connect to the RevTap server.");
     }
   }
@@ -252,10 +262,10 @@ export default function AdminPage() {
           </label>
 
           <input
-            type="url"
+            type="text"
             value={reviewUrl}
             onChange={(e) => setReviewUrl(e.target.value)}
-            placeholder="https://g.page/r/..."
+            placeholder="https://g.page/r/XXXXXXXXXXXX/review"
             className="w-full border border-slate-300 rounded-xl px-4 py-3 mb-6 outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
