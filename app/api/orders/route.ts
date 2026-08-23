@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("orders")
       .insert({
         customer_name: customerName,
@@ -41,11 +41,9 @@ export async function POST(request: Request) {
         city,
         pincode,
         product_name: productName,
-        quantity,
+        quantity: quantity,
         total_amount: totalAmount,
-      })
-      .select()
-      .single();
+      });
 
     if (error) {
       console.error("Supabase order error:", error);
@@ -59,7 +57,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: true,
-        order: data,
+        message: "Order placed successfully!",
       },
       { status: 201 }
     );
