@@ -35,6 +35,9 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [ordersLoading, setOrdersLoading] = useState(true);
 
+  const [editingBusinessId, setEditingBusinessId] = useState<string | null>(null);
+  const [editingReviewUrl, setEditingReviewUrl] = useState("");
+
   async function loadBusinesses() {
     try {
       const response = await fetch("/api/businesses");
@@ -111,6 +114,44 @@ export default function AdminPage() {
       setBusinessName("");
       setBusinessId("");
       setReviewUrl("");
+
+      await loadBusinesses();
+    } catch (error) {
+      console.error(error);
+      setMessage("Could not connect to the RevTap server.");
+    }
+  }
+
+  async function updateBusiness(businessId: string) {
+    const url = editingReviewUrl.trim();
+
+    if (!url) {
+      setMessage("Please enter a review URL.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/businesses", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: businessId,
+          reviewUrl: url,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setMessage(data.error || "Could not update business.");
+        return;
+      }
+
+      setMessage("Google review link updated successfully!");
+      setEditingBusinessId(null);
+      setEditingReviewUrl("");
 
       await loadBusinesses();
     } catch (error) {
@@ -315,13 +356,13 @@ export default function AdminPage() {
 
                   {/* QR CODE */}
                   <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm shrink-0">
-                    <QRCodeSVG
-                      id={`qr-${business.id}`}
-                      value={business.reviewUrl}
-                      size={240}
-                      level="H"
-                      includeMargin
-                    />
+                   <QRCodeSVG
+  id={`qr-${business.id}`}
+  value={`https://revtap.in/r/${business.id}`}
+  size={240}
+  level="H"
+  includeMargin
+/>
                   </div>
                 </div>
 
@@ -344,7 +385,55 @@ export default function AdminPage() {
                   >
                     Download QR
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingBusinessId(business.id);
+                      setEditingReviewUrl(business.reviewUrl);
+                      setMessage("");
+                    }}
+                    className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2.5 rounded-xl font-semibold transition"
+                  >
+                    Edit Review Link
+                  </button>
                 </div>
+
+                {editingBusinessId === business.id && (
+                  <div className="mt-5 bg-slate-50 border border-slate-200 rounded-2xl p-5">
+                    <label className="block font-semibold mb-2">
+                      New Google Review URL
+                    </label>
+
+                    <input
+                      type="text"
+                      value={editingReviewUrl}
+                      onChange={(e) => setEditingReviewUrl(e.target.value)}
+                      placeholder="https://search.google.com/local/writereview?placeid=..."
+                      className="w-full border border-slate-300 rounded-xl px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => updateBusiness(business.id)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-semibold"
+                      >
+                        Save Changes
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingBusinessId(null);
+                          setEditingReviewUrl("");
+                        }}
+                        className="bg-slate-200 hover:bg-slate-300 text-slate-900 px-5 py-2.5 rounded-xl font-semibold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-4">
                   <p className="text-sm font-semibold text-blue-900">
@@ -352,7 +441,7 @@ export default function AdminPage() {
                   </p>
 
                   <p className="text-sm text-blue-700 break-all mt-1">
-                    {business.reviewUrl}
+                    https://revtap.in/r/{business.id}
                   </p>
                 </div>
               </div>

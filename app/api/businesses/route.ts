@@ -57,11 +57,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Accept long Google Maps/Search review URLs as well as
-    // normal g.page review links.
     if (!/^https?:\/\//i.test(reviewUrl)) {
       return NextResponse.json(
-        { error: "Please enter a valid Google review URL." },
+        { error: "Please enter a valid review URL." },
         { status: 400 }
       );
     }
@@ -100,6 +98,83 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error("Business API error:", error);
+
+    return NextResponse.json(
+      { error: "Invalid request." },
+      { status: 400 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+
+    const id =
+      typeof body.id === "string" ? body.id.trim() : "";
+
+    const reviewUrl =
+      typeof body.reviewUrl === "string"
+        ? body.reviewUrl.trim()
+        : "";
+
+    const name =
+      typeof body.name === "string"
+        ? body.name.trim()
+        : undefined;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Business ID is required." },
+        { status: 400 }
+      );
+    }
+
+    if (!reviewUrl || !/^https?:\/\//i.test(reviewUrl)) {
+      return NextResponse.json(
+        { error: "Please enter a valid review URL." },
+        { status: 400 }
+      );
+    }
+
+    const updateData: {
+      review_url: string;
+      name?: string;
+    } = {
+      review_url: reviewUrl,
+    };
+
+    if (name) {
+      updateData.name = name;
+    }
+
+    const { data, error } = await supabase
+      .from("businesses")
+      .update(updateData)
+      .eq("id", id)
+      .select("id, name, review_url, active")
+      .single();
+
+    if (error) {
+      console.error("Supabase business PATCH error:", error);
+
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      business: {
+        id: data.id,
+        name: data.name,
+        reviewUrl: data.review_url,
+        active: data.active,
+      },
+    });
+  } catch (error) {
+    console.error("Business PATCH error:", error);
 
     return NextResponse.json(
       { error: "Invalid request." },
