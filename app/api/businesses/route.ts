@@ -1,54 +1,15 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-export async function POST(request: Request) {
+export async function GET() {
   try {
-    const body = await request.json();
-
-    const {
-      customerName,
-      phone,
-      address,
-      city,
-      pincode,
-      productName,
-      quantity,
-      totalAmount,
-    } = body;
-
-    if (
-      !customerName ||
-      !phone ||
-      !address ||
-      !city ||
-      !pincode ||
-      !productName ||
-      !quantity ||
-      totalAmount === undefined
-    ) {
-      return NextResponse.json(
-        { error: "Please fill in all required fields." },
-        { status: 400 }
-      );
-    }
-
     const { data, error } = await supabase
-      .from("orders")
-      .insert({
-        customer_name: customerName,
-        phone,
-        address,
-        city,
-        pincode,
-        product_name: productName,
-        quantity,
-        total_amount: totalAmount,
-      })
-      .select()
-      .single();
+      .from("businesses")
+      .select("id, name, review_url, active")
+      .order("name", { ascending: true });
 
     if (error) {
-      console.error("Supabase order error:", error);
+      console.error("Supabase businesses GET error:", error);
 
       return NextResponse.json(
         { error: error.message },
@@ -56,15 +17,89 @@ export async function POST(request: Request) {
       );
     }
 
+    const businesses = (data || []).map((business) => ({
+      id: business.id,
+      name: business.name,
+      reviewUrl: business.review_url,
+      active: business.active,
+    }));
+
+    return NextResponse.json(businesses);
+  } catch (error) {
+    console.error("Businesses GET error:", error);
+
+    return NextResponse.json(
+      { error: "Could not load businesses." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+
+    const name =
+      typeof body.name === "string" ? body.name.trim() : "";
+
+    const id =
+      typeof body.id === "string" ? body.id.trim() : "";
+
+    const reviewUrl =
+      typeof body.reviewUrl === "string"
+        ? body.reviewUrl.trim()
+        : "";
+
+    if (!name || !id || !reviewUrl) {
+      return NextResponse.json(
+        { error: "Please fill in all required fields." },
+        { status: 400 }
+      );
+    }
+
+    // Accept long Google Maps/Search review URLs as well as
+    // normal g.page review links.
+    if (!/^https?:\/\//i.test(reviewUrl)) {
+      return NextResponse.json(
+        { error: "Please enter a valid Google review URL." },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("businesses")
+      .insert({
+        id,
+        name,
+        review_url: reviewUrl,
+        active: true,
+      })
+      .select("id, name, review_url, active")
+      .single();
+
+    if (error) {
+      console.error("Supabase business POST error:", error);
+
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       {
         success: true,
-        order: data,
+        business: {
+          id: data.id,
+          name: data.name,
+          reviewUrl: data.review_url,
+          active: data.active,
+        },
       },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Order API error:", error);
+    console.error("Business API error:", error);
 
     return NextResponse.json(
       { error: "Invalid request." },
