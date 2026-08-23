@@ -1,62 +1,87 @@
 import { NextResponse } from "next/server";
-import { readFile, writeFile } from "fs/promises";
-import path from "path";
-export async function GET() {
-  try {
-    const file = await readFile(filePath, "utf-8");
-    const businesses = JSON.parse(file);
+import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin"; 
 
-    return NextResponse.json(businesses);
-  } catch {
+export async function GET() {
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("id, name, review_url, active, created_at")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Supabase GET error:", error);
+
     return NextResponse.json(
-      { error: "Could not load businesses." },
+      { error: error.message },
       { status: 500 }
     );
   }
-}
 
-const filePath = path.join(
-  process.cwd(),
-  "app",
-  "data",
-  "businesses.json"
-);
+  return NextResponse.json(data ?? []);
+}
 
 export async function POST(request: Request) {
   try {
-    const newBusiness = await request.json();
+    const supabaseServer = await createClient();
 
-    const file = await readFile(filePath, "utf-8");
-    const businesses = JSON.parse(file);
+    const {
+      data: { user },
+    } = await supabaseServer.auth.getUser();
 
-    const alreadyExists = businesses.some(
-      (business: { id: string }) => business.id === newBusiness.id
-    );
-
-    if (alreadyExists) {
+    if (!user) {
       return NextResponse.json(
-        { error: "Business ID already exists." },
-        { status: 409 }
+        { error: "You must be logged in." },
+        { status: 401 }
       );
     }
 
-    businesses.push({
-      id: newBusiness.id,
-      name: newBusiness.name,
-      reviewUrl: newBusiness.reviewUrl,
-      active: true,
-    });
+    const body = await request.json();
 
-    await writeFile(
-      filePath,
-      JSON.stringify(businesses, null, 2)
+    const id = body.id?.trim();
+    const name = body.name?.trim();
+    const reviewUrl = body.reviewUrl?.trim();
+
+    if (!id || !name || !reviewUrl) {
+      return NextResponse.json(
+        { error: "All fields are required." },
+        { status: 400 }
+      );
+    }
+
+    const supabaseAdmin = createAdminClient();
+
+const { data, error } = await supabaseAdmin
+  .from("businesses")
+  .insert({
+        
+        id,
+        name,
+        review_url: reviewUrl,
+        active: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase POST error:", error);
+
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        business: data,
+      },
+      { status: 201 }
     );
+  } catch (error) {
+    console.error("POST error:", error);
 
-    return NextResponse.json({
-      success: true,
-      business: newBusiness,
-    });
-  } catch {
     return NextResponse.json(
       { error: "Could not create business." },
       { status: 500 }

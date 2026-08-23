@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
-import path from "path";
+import { supabase } from "@/lib/supabase";
 
 export async function GET(
   request: Request,
@@ -8,26 +7,18 @@ export async function GET(
 ) {
   const { businessId } = await params;
 
-  const filePath = path.join(
-    process.cwd(),
-    "app",
-    "data",
-    "businesses.json"
-  );
+  const { data: business, error } = await supabase
+    .from("businesses")
+    .select("id, name, review_url, active")
+    .eq("id", businessId)
+    .eq("active", true)
+    .single();
 
-  const file = await readFile(filePath, "utf-8");
-  const businesses = JSON.parse(file);
-
-  const business = businesses.find(
-    (item: { id: string; active: boolean }) =>
-      item.id === businessId && item.active
-  );
-
-  if (!business) {
+  if (error || !business) {
     return new NextResponse("RevTap link not found", {
       status: 404,
     });
   }
 
-  return NextResponse.redirect(business.reviewUrl);
+  return NextResponse.redirect(business.review_url);
 }
